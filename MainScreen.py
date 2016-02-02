@@ -1,6 +1,7 @@
 from PyQt4 import QtCore, QtGui
 import os
 from EditPane import *
+from FileExplorer import *
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -29,6 +30,10 @@ class MainWindow(QMainWindow):
         self.newAction.setShortcut("Ctrl+N")
         self.newAction.triggered.connect(self._new_file_action)
 
+        self.closeTab = QAction("&Close Tab", self)
+        self.closeTab.setShortcut("Ctrl+W")
+        self.closeTab.triggered.connect(self.tab_close_action)
+
 
         # Define the menubar
 
@@ -38,15 +43,41 @@ class MainWindow(QMainWindow):
         filemenu.addAction(self.openAction)
         filemenu.addAction(self.newAction)
         filemenu.addAction(self.saveAction)
+        filemenu.addAction(self.closeTab)
 
-        self.layout = QVBoxLayout()
+        self.layout = QHBoxLayout()
+
+        # Define the file explorer view
+
+        self.explorer = QWidget()
+        self.explorer_layout = QVBoxLayout()
+
+        self.file_explorer = FileExplorerPane(self)
+        self.explorer.setFixedWidth(200)
+
+
+        self.explorer_layout.addWidget(self.file_explorer)
+
+
+        self.explorer.setLayout(self.explorer_layout)
+
+        self.layout.addWidget(self.explorer)
+
+        # Define the editor pane
+
+        self.editor = QWidget()
+        self.editor_layout = QVBoxLayout()
         self.tab_switcher = QTabWidget()
 
-        edit = FileEditor()
-        self.tab_switcher.addTab(edit, "file0")
-        self.layout.addWidget(self.tab_switcher)
+        edit = FileEditor(master=self)
+        self.tab_switcher.addTab(edit, "New0")
         self.tab_switcher.setTabsClosable(True)
+        self.tab_switcher.tabCloseRequested.connect(self.tab_close_action)
 
+        self.editor_layout.addWidget(self.tab_switcher)
+        self.editor.setLayout(self.editor_layout)
+
+        self.layout.addWidget(self.editor)
 
         self.central_widget.setLayout(self.layout)
         self.setCentralWidget(self.central_widget)
@@ -60,13 +91,15 @@ class MainWindow(QMainWindow):
         filename = QFileDialog.getOpenFileName(self, "Open File", cwd, "")
 
         # Get the last part of the filename
-        filename_end = filename.rsplit("/")[-1]
+        self.open_file(filename)
 
-        self.tab_switcher.addTab(FileEditor(open(filename)), filename_end)
-        self.tab_switcher.setCurrentIndex(len(self.tab_switcher)+1)
+    def open_file(self, filename):
+        filename_end = filename.rsplit("/")[-1]
+        self.tab_switcher.insertTab(0, FileEditor(open(filename)), filename_end)
+        self.tab_switcher.setCurrentIndex(0)
 
     def _new_file_action(self):
-        self.tab_switcher.addTab(FileEditor(None), "new{0}".format(self.news-1))
+        self.tab_switcher.addTab(FileEditor(None, master=self), "new{0}".format(self.news))
         self.news+=1
 
     def _save_action(self):
@@ -82,3 +115,6 @@ class MainWindow(QMainWindow):
         with open(filename, "w") as f:
             f.write(current.editor.toPlainText())
         print("Saved")
+
+    def tab_close_action(self, index =  None):
+        self.tab_switcher.removeTab(index)
